@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost Kingdom: The Adaptive Chronicles — Autonomous Multi-Agent Educational Game</title>
+    <meta name="description" content="An autonomous multi-agent educational RPG where AI agents dynamically track, model, and adapt to player knowledge, emotions, and decisions in real time.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+
+    <!-- ======================================================================
+         TOP NAVIGATION & MULTI-AGENT ADAPTIVE HUD
+         ====================================================================== -->
+    <header class="game-header">
+        <div class="brand-section">
+            <div class="brand-icon">👑</div>
+            <div>
+                <h1 class="brand-title">LOST KINGDOM II</h1>
+                <div class="brand-subtitle">Autonomous Multi-Agent Educational System</div>
+            </div>
+        </div>
+
+        <!-- Telemetry Status Pills -->
+        <div class="hud-telemetry">
+            <div class="hud-pill" id="hud-level-pill">
+                <span>🛡️</span>
+                <span id="hud-player-level">Lvl 1</span>
+                <div class="progress-track" style="width: 50px; height: 5px; margin: 0 4px;">
+                    <div class="progress-fill" id="hud-xp-fill" style="width: 20%;"></div>
+                </div>
+            </div>
+
+            <div class="hud-pill branch" id="hud-branch-badge" title="Active Narrative Branch">
+                PROLOGUE
+            </div>
+
+            <div class="hud-pill diff-medium" id="hud-diff-badge" title="Dynamic Difficulty calibrated by Challenge Agent">
+                MEDIUM
+            </div>
+
+            <div class="hud-pill emotion-engaged" id="hud-emotion-badge" title="Affective Gameplay State estimated by Emotion Agent">
+                ⚡ Engaged
+            </div>
+
+            <div class="hud-pill" id="hud-mastery-pill" title="Bayesian / Elo Knowledge Mastery">
+                <span>🧠</span>
+                <span id="hud-overall-mastery">35%</span>
+            </div>
+        </div>
+
+        <!-- Top Right Actions -->
+        <div class="header-actions">
+            <button class="btn-glass" id="btn-toggle-mastery" title="View Knowledge Mastery Breakdown">
+                📊 Mastery
+            </button>
+            <button class="btn-glass" id="btn-toggle-multiplayer" title="Multiplayer Arena Room">
+                👥 Multiplayer
+            </button>
+            <button class="btn-glass btn-primary" id="btn-toggle-dashboard" title="Open Multi-Agent Telemetry Command Center">
+                🤖 Agent Dashboard
+            </button>
+            <button class="btn-glass" id="btn-mute-toggle" title="Toggle Sound">
+                🔊 Audio: ON
+            </button>
+        </div>
+    </header>
+
+    <!-- ======================================================================
+         MAIN GAME VIEWPORT & 2D CANVAS
+         ====================================================================== -->
+    <main class="main-viewport">
+        <canvas id="game-canvas" width="1100" height="700"></canvas>
+
+        <!-- Proximity Overhead Prompt -->
+        <div class="interaction-hint" id="interaction-hint">
+            <span>💬</span> Press <strong>[E]</strong> to talk
+        </div>
+
+        <!-- Zone Change Announcement Banner -->
+        <div class="zone-banner" id="zone-banner">
+            <div class="zone-banner-title" id="zone-banner-title">VILLAGE OF OAKHAVEN</div>
+            <div class="zone-banner-sub" id="zone-banner-sub">The realm of foundational learning</div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div class="game-notification" id="game-notification">
+            Welcome to the Lost Kingdom!
+        </div>
+
+        <!-- ==================================================================
+             NPC DIALOGUE MODAL (Adaptive & Voice-Enabled)
+             ================================================================== -->
+        <div class="dialogue-modal" id="dialogue-modal">
+            <div class="dialogue-header">
+                <div class="npc-meta">
+                    <div class="dialogue-portrait" id="dialogue-portrait">🧙‍♀️</div>
+                    <div class="npc-title-box">
+                        <h3 id="dialogue-npc-name">Elder Sophia</h3>
+                        <div class="tone-badge" id="dialogue-tone-badge">Tone: Encouraging Mentor</div>
+                    </div>
+                </div>
+                <div class="dialogue-voice-controls">
+                    <button class="btn-glass" id="btn-dialogue-tts" title="Read Aloud with Speech Synthesis">
+                        🔊 Read Aloud
+                    </button>
+                    <button class="btn-glass" id="btn-dialogue-voice" title="Speak to NPC via Speech Recognition">
+                        🎙️ Speak to NPC
+                    </button>
+                    <div id="voice-status-badge" class="voice-status-badge" style="font-size: 10px; color: var(--accent-cyan); display: flex; align-items: center; gap: 4px; padding: 2px 6px;">
+                        <span id="voice-status-text">Ready</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dialogue-body" id="dialogue-text">
+                Welcome, seeker. The ancient archives stir as your insight grows.
+            </div>
+
+            <div class="dialogue-actions">
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-glass btn-primary" id="btn-dialogue-challenge">
+                        ⚔️ Take Learning Challenge
+                    </button>
+                    <button class="btn-glass" id="btn-dialogue-quest">
+                        📜 Ask About Quest
+                    </button>
+                </div>
+                <button class="btn-glass" id="btn-dialogue-close">
+                    Leave Conversation
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ======================================================================
+         CHALLENGE INTERACTION MODAL (Curated by Challenge Agent)
+         ====================================================================== -->
+    <div class="challenge-modal" id="challenge-modal">
+        <div class="challenge-card">
+            <div class="challenge-top-meta">
+                <div class="challenge-badges">
+                    <span class="badge topic" id="challenge-topic-badge">Algebra</span>
+                    <span class="badge diff-medium" id="challenge-difficulty-badge">MEDIUM</span>
+                </div>
+                <button class="btn-glass" id="btn-close-challenge" style="padding: 4px 10px;">✕ Close</button>
+            </div>
+
+            <div class="hint-box" id="challenge-hint-box">
+                💡 <strong>Hint:</strong> <span id="challenge-hint-text"></span>
+            </div>
+
+            <div class="question-text" id="challenge-question-text">
+                Solve for x: 3x + 5 = 20
+            </div>
+
+            <div class="options-grid" id="challenge-options-grid">
+                <!-- Dynamically injected option cards -->
+            </div>
+
+            <div class="challenge-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-glass" id="btn-hint">
+                        💡 Need a Hint
+                    </button>
+                    <button class="btn-glass" id="btn-voice-answer" title="Speak your answer or option">
+                        🎙️ Voice Answer
+                    </button>
+                </div>
+                <button class="btn-glass btn-primary" id="btn-next-challenge" style="display: none;">
+                    Next Challenge →
+                </button>
+            </div>
+
+            <!-- Instant Step-by-Step Explanation & Agent Feedback -->
+            <div class="explanation-box" id="challenge-explanation-box">
+                <div class="status-tag success" id="challenge-result-status">✓ Correct!</div>
+                <div id="challenge-result-explanation" style="font-size: 13px; color: #cbd5e1; margin-bottom: 8px;"></div>
+                <div class="agent-telemetry-row" id="challenge-agent-telemetry">
+                    <!-- Agent adaptation pills injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MASTERY DRAWER (Knowledge Agent State)
+         ====================================================================== -->
+    <div class="drawer" id="mastery-drawer">
+        <div class="drawer-header">
+            <h3>Knowledge Mastery</h3>
+            <button class="btn-glass" id="btn-close-mastery">✕</button>
+        </div>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">
+            Maintained by the <strong>Knowledge Agent</strong> using Bayesian Knowledge Tracing & Elo rating.
+        </p>
+        <div class="mastery-topics-list" id="mastery-topics-list">
+            <!-- Topics rendered here -->
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MULTIPLAYER DRAWER & CO-OP ROOM
+         ====================================================================== -->
+    <div class="drawer" id="multiplayer-drawer">
+        <div class="drawer-header">
+            <h3>Multiplayer Sanctum</h3>
+            <button class="btn-glass" id="btn-close-multiplayer">✕</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="status-tag success" id="mp-status-pill">Connected to Realm Network</div>
+            <div>
+                <label style="font-size: 11px; color: var(--text-muted); font-weight: 700;">ROOM LOBBY</label>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <input type="text" id="mp-room-input" value="Grand-Sanctum" style="background: rgba(30,41,59,0.7); border: 1px solid var(--border-glass); color: #fff; padding: 6px 10px; border-radius: 6px; flex: 1; font-size: 13px;">
+                    <button class="btn-glass" id="btn-join-room">Join</button>
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 11px; color: var(--text-muted); font-weight: 700;">ACTIVE ADVENTURERS</label>
+                <ul id="mp-players-list" style="list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+                    <li>👤 You (Host)</li>
+                </ul>
+            </div>
+
+            <button class="btn-glass btn-primary" id="btn-trigger-shared-challenge">
+                ⚔️ Start Co-Op Challenge
+            </button>
+
+            <div>
+                <label style="font-size: 11px; color: var(--text-muted); font-weight: 700;">LIVE LEADERBOARD</label>
+                <div id="mp-leaderboard" style="margin-top: 6px; font-size: 12px; display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Real-time score stream -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         AGENT DEVELOPER & EVALUATOR COMMAND CENTER
+         ====================================================================== -->
+    <div class="dashboard-modal" id="dashboard-modal">
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h2><span>🤖</span> MULTI-AGENT ADAPTIVE SYSTEM DASHBOARD</h2>
+                <button class="btn-glass" id="btn-close-dashboard">✕ Close</button>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- Simulation / Evaluator Control Dock -->
+                <div class="simulation-dock">
+                    <div class="simulation-dock-header">⚡ Evaluator Demonstration Dock (Instant Scenarios)</div>
+                    <div class="sim-button-group">
+                        <button class="sim-btn danger" id="btn-sim-frustration">
+                            ⚠️ Trigger Frustration Streak (Wrong + Slow)
+                        </button>
+                        <button class="sim-btn success" id="btn-sim-mastery">
+                            🔥 Trigger Mastery Streak (Fast + Correct)
+                        </button>
+                        <button class="sim-btn branch" id="btn-sim-branch-scholar">
+                            📜 Branch: Scholar's Path
+                        </button>
+                        <button class="sim-btn branch" id="btn-sim-branch-vanguard">
+                            ⚔️ Branch: Vanguard's Trial
+                        </button>
+                        <button class="sim-btn branch" id="btn-sim-branch-mystic">
+                            ✨ Branch: Mystic's Synthesis
+                        </button>
+                        <button class="sim-btn" id="btn-sim-reset">
+                            🌿 Reset Memory to Baseline
+                        </button>
+                    </div>
+                    <div class="sim-notice" id="sim-status-notice"></div>
+                </div>
+
+                <!-- 5 Specialized Agent Cards -->
+                <div>
+                    <h4 style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; letter-spacing: 1px;">
+                        AUTONOMOUS AGENTS INTERNAL STATE (5 SPECIALIZED UNITS)
+                    </h4>
+                    <div class="agent-grid" id="agent-cards-grid">
+                        <!-- 5 Agent cards populated by dashboard.js -->
+                    </div>
+                </div>
+
+                <!-- Real-Time Activity Log Stream -->
+                <div class="activity-stream-container">
+                    <div class="stream-title">📡 Real-Time Agent Communication & Decision Bus</div>
+                    <div class="activity-stream" id="agent-activity-stream">
+                        <!-- Timestamped agent messages -->
+                    </div>
+                </div>
+
+                <!-- Story Branch Visualizer Tree -->
+                <div class="branch-tree-container">
+                    <div class="branch-tree-title">🗺️ Adaptive Narrative Branch Flowchart</div>
+                    <div class="branch-tree-grid" id="dashboard-branch-tree">
+                        <!-- Branch cards -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/voice.js"></script>
+    <script src="/static/js/world.js"></script>
+    <script src="/static/js/game.js"></script>
+    <script src="/static/js/ui.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/multiplayer.js"></script>
+
+    <!-- Master Application Bootstrapper -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Instantiate all systems
+            window.uiManager = new UIManager();
+            window.dashboardManager = new DashboardManager();
+            window.gameEngine = new GameEngine();
+            window.multiplayerManager = new MultiplayerManager();
+
+            // Initialize player session and boot canvas engine
+            window.uiManager.initPlayerSession().then(() => {
+                window.gameEngine.init(window.uiManager.playerId, window.uiManager.username);
+            });
+        });
+    </script>
+</body>
+</html>
